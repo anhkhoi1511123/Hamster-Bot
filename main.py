@@ -4,36 +4,60 @@ import os
 from flask import Flask
 from threading import Thread
 
-# 1. Tạo một server web nhỏ để "lừa" Koyeb rằng ứng dụng vẫn đang hoạt động
+# --- PHẦN 1: THIẾT LẬP SERVER WEB ĐỂ GIỮ BOT ONLINE (KEEP-ALIVE) ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot is alive!"
+    return "Hamster Bot is Online!"
 
-def run():
-    # Koyeb sẽ cung cấp PORT qua biến môi trường, mặc định là 8080
+def run_flask():
+    # Koyeb yêu cầu ứng dụng chạy trên Port do họ cung cấp (mặc định 8080)
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
-    t = Thread(target=run)
+    # Chạy server Flask trong một luồng (thread) riêng để không làm gián đoạn bot
+    t = Thread(target=run_flask)
     t.start()
 
-# 2. Setup Bot Discord
+# --- PHẦN 2: CẤU HÌNH BOT DISCORD ---
+# Cấp quyền cho bot (Intents)
 intents = discord.Intents.default()
-intents.message_content = True
+intents.message_content = True  # Cho phép bot đọc nội dung tin nhắn
+
+# Khởi tạo bot với tiền tố lệnh là dấu chấm cảm (!)
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 @bot.event
 async def on_ready():
+    print(f'------------------------------------')
     print(f'Đã đăng nhập thành công: {bot.user}')
+    print(f'ID Bot: {bot.user.id}')
+    print(f'------------------------------------')
 
+# Các lệnh của bot
 @bot.command()
 async def ping(ctx):
-    await ctx.send('Pong!')
+    await ctx.send(f'🏓 Pong! Độ trễ: {round(bot.latency * 1000)}ms')
 
-# 3. Chạy cả 2
-keep_alive()
-token = os.environ.get("DISCORD_TOKEN") # Lấy token từ Environment Variables của Koyeb
-bot.run(token)
+@bot.command()
+async def hello(ctx):
+    await ctx.send('Chào bạn! Hamster Bot đã sẵn sàng phục vụ! 🐹')
+
+# --- PHẦN 3: KÍCH HOẠT VÀ CHẠY BOT ---
+if __name__ == "__main__":
+    # 1. Khởi động server web
+    keep_alive()
+    
+    # 2. Lấy Token từ Environment Variables (Biến môi trường) trên Koyeb
+    token = os.environ.get("DISCORD_TOKEN")
+    
+    # 3. Chạy bot
+    if token:
+        try:
+            bot.run(token)
+        except Exception as e:
+            print(f"Lỗi khi khởi động bot: {e}")
+    else:
+        print("LỖI: Không tìm thấy DISCORD_TOKEN. Hãy kiểm tra lại Settings trên Koyeb!")
